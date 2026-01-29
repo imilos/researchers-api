@@ -362,7 +362,8 @@ def login(user_data: LoginSchema, db: Session = Depends(get_db)):
 async def loginldap(user_data: LoginSchema):
 
     """Login user and return JWT token"""
-    
+    user_data.email = user_data.email.replace("@pmf.kg.ac.rs", "")
+    user_data.email = user_data.email.replace("@kg.ac.rs", "")
     user = await ldap_auth.authenticate_user(user_data.email, user_data.password)
 
     # Only allow users in LDAP_USER_LIST
