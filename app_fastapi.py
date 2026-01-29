@@ -363,12 +363,12 @@ async def loginldap(user_data: LoginSchema):
 
     """Login user and return JWT token"""
     username = user_data.email.replace("@pmf.kg.ac.rs", "")
-    user_data.email = username.replace("@kg.ac.rs", "")
+    username = username.replace("@kg.ac.rs", "")
     print("Attempting LDAP login for user:", username)
     user = await ldap_auth.authenticate_user(username, user_data.password)
 
     # Only allow users in LDAP_USER_LIST
-    if not user or user_data.email not in config.LDAP_USER_LIST:
+    if not user or username not in config.LDAP_USER_LIST:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password."
