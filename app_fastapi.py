@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field, ConfigDict, validator
-from sqlalchemy import create_engine, Column, Integer, String, or_
+from sqlalchemy import create_engine, Column, Integer, String, or_,func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +17,8 @@ import jwt
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 import csv
 import io
+import requests
+import time
 
 from fastapi_ldap import LDAPAuth, LDAPSettings, require_groups
 import config
@@ -93,6 +95,7 @@ class Customer(Base):
     orcid = Column(String(255), nullable=True)
     scopusid = Column(String(255), nullable=True)
     ecrisid = Column(String(255), nullable=True)
+    authorities = Column(String(255), nullable=True)
     
     # Foreign keys
     faculty_id = Column(Integer, ForeignKey("faculty.id"), nullable=True)  # Optional for now
@@ -137,6 +140,7 @@ class CustomerBase(BaseModel):
     orcid: Optional[str] = Field(None, max_length=20, description="ORCID identifier")
     scopusid: Optional[str] = Field(None, max_length=20, description="Scopus ID")
     ecrisid: Optional[str] = Field(None, max_length=20, description="ECRIS ID")
+    authorities: Optional[str] = Field(None, max_length=255, description="Authorities from DSpace")
     faculty_id: Optional[int] = None
     department_id: Optional[int] = None
 
@@ -296,7 +300,126 @@ def validate_customer(db: Session, data: dict, customer_id: Optional[int] = None
     return errors
 
 #
-# Authentication Routes
+# Create index for DSpace. Returns a string with variants separated by '#'.
+#
+def create_index(name: str) -> str:
+    if name is None:
+        return ''
+
+    s = name
+
+    # replace Serbian characters
+    replacements = {
+        'š': 's', 'đ': 'd', 'č': 'c', 'ć': 'c', 'ž': 'z',
+        'Š': 'S', 'Đ': 'D', 'Č': 'C', 'Ć': 'C', 'Ž': 'Z'
+    }
+    for k, v in replacements.items():
+        s = s.replace(k, v)
+
+    # replace hyphen with space
+    s = s.replace('-', ' ')
+
+    names = s.split(' ')
+
+    t = []
+
+    def ucfirst(x: str) -> str:
+        return x[:1].upper() + x[1:] if x else x
+
+    # two name parts
+    if len(names) == 2:
+        fn = ucfirst(names[1])
+        ln = ucfirst(names[0])
+
+        t.append(f"{ln} {fn}")
+        # initial of first name with dot
+        t.append(f"{ln} {fn[:1]}.")
+
+        return '#' + '#'.join(t)
+    # three name parts
+    elif len(names) == 3:
+        fn = ucfirst(names[2])
+        ln = ucfirst(names[0])
+        ln2 = ucfirst(names[1])
+
+        t.append(f"{ln} {ln2} {fn}")
+        t.append(f"{ln2} {ln} {fn}")
+
+        t.append(f"{ln}-{ln2} {fn}")
+        t.append(f"{ln2}-{ln} {fn}")
+
+        t.append(f"{ln} {ln2} {fn[:1]}.")
+        t.append(f"{ln2} {ln} {fn[:1]}.")
+
+        t.append(f"{ln}-{ln2} {fn[:1]}.")
+        t.append(f"{ln2}-{ln} {fn[:1]}.")
+
+        return s + '#' + '#'.join(t)
+
+    return s
+
+#
+# Get authorities from external SCIDAT API using ORCID
+#
+def get_authorities(orcid: str) -> str:
+    """Fetch authorities from the external DSpace using ORCID.
+    
+    Args:
+        orcid: ORCID identifier
+    
+    Returns:
+        String with authorities or empty string if not found
+    """
+    if not orcid:
+        return ''
+    
+    try:
+        url = f'{config.AUTHORITY_URL}{orcid.strip()}'
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        if data and 'authorities' in data:
+            return data['authorities']
+    except (requests.RequestException, ValueError):
+        # Return empty string on any request or JSON parsing error
+        pass
+    
+    return ''
+
+
+def fetch_and_update_authorities(db: Session, cycle_sleep: float = 1.0) -> None:
+    """Continuously fetch authorities for all customers with ORCID and update their `authorities` field.
+    - Converts list authorities to a space-separated string.
+    """
+    customers = (
+        db.query(Customer)
+        .filter(Customer.orcid != None)
+        .order_by(Customer.id)
+        .all()
+    )
+
+    for cust in customers:
+        try:
+            authorities = get_authorities(cust.orcid)
+            if isinstance(authorities, list):
+                auth_str = ' '.join([str(a) for a in authorities])
+            elif isinstance(authorities, str):
+                auth_str = authorities
+            else:
+                auth_str = ''
+
+            cust.authorities = auth_str
+            db.add(cust)
+            db.commit()
+            print(f"Updated authorities for {cust.name}: {auth_str}")
+        except Exception as e:
+            print(f"Error fetching authorities for ORCID {cust.orcid}: {e}")
+         
+        time.sleep(cycle_sleep)
+
+#
+#   API routes - Authentication
 #
 @app.post("/api/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(user: RegisterSchema, db: Session = Depends(get_db)):
@@ -369,7 +492,6 @@ async def loginldap(user_data: LoginSchema):
     user = await ldap_auth.authenticate_user(username, user_data.password)
     print("LDAP user authenticated:", user)
 
-    # Only allow users in LDAP_USER_LIST
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -478,6 +600,8 @@ def get_customers(
             Customer.ecrisid.ilike(f"%{filter_string}%"),
             )
         )
+    # Filter only researchers with authorities longer than 38 characters
+    #query = query.filter(func.length(Customer.authorities) > 38)
 
     total = query.count()
     
@@ -653,7 +777,7 @@ def download_customers_csv(db: Session = Depends(get_db)):
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
-        fieldnames=['orcid', 'ecrisid', 'scopusid', 'name', 'email', 'department', 'faculty']
+        fieldnames=['orcid', 'ecrisid', 'scopusid', 'name', 'email', 'department', 'faculty', 'dspace_index']
     )
     
     writer.writeheader()
@@ -670,8 +794,12 @@ def download_customers_csv(db: Session = Depends(get_db)):
             'name': customer.name,
             'email': customer.email,
             'department': department_name,
-            'faculty': faculty_name
+            'faculty': faculty_name,
+            'dspace_index': create_index(customer.name) + "#" +(customer.orcid or '')
         })
+        authorities = get_authorities(customer.orcid or '')
+        if authorities:
+            print(f"Authorities for {customer.name}: {authorities}")
     
     output.seek(0)
     return StreamingResponse(
