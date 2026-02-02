@@ -241,7 +241,6 @@ async def get_current_user(
     
     try:
         token = credentials.credentials
-        print(f"Token: {token}")
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: int = payload.get("id")
         email: str = payload.get("email")
@@ -582,6 +581,7 @@ def get_customers(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(10, ge=1, le=100, description="Items per page"),
     filter_string: Optional[str] = Query(None, description="Filter by customer name, email, ORCID, Scopus ID, ECRIS ID"),
+    only_multiple_authorities: bool = Query(False, description="Filter only researchers with multiple authorities"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -601,7 +601,8 @@ def get_customers(
             )
         )
     # Filter only researchers with authorities longer than 38 characters
-    #query = query.filter(func.length(Customer.authorities) > 38)
+    if only_multiple_authorities:
+        query = query.filter(func.length(Customer.authorities) > 40)
 
     total = query.count()
     
@@ -797,9 +798,6 @@ def download_customers_csv(db: Session = Depends(get_db)):
             'faculty': faculty_name,
             'dspace_index': create_index(customer.name) + "#" +(customer.orcid or '')
         })
-        authorities = get_authorities(customer.orcid or '')
-        if authorities:
-            print(f"Authorities for {customer.name}: {authorities}")
     
     output.seek(0)
     return StreamingResponse(
