@@ -2,7 +2,6 @@
 
 A **FastAPI-based backend** for managing researcher profiles, featuring **JWT authentication**, **LDAP integration**, and **automated authority fetching**.
 
----
 
 ## Features
 
@@ -18,7 +17,6 @@ A **FastAPI-based backend** for managing researcher profiles, featuring **JWT au
 
 - **Export** - CSV export of all researcher data
 
----
 
 ## Tech Stack
 
@@ -28,7 +26,6 @@ A **FastAPI-based backend** for managing researcher profiles, featuring **JWT au
 - **Authentication:** JWT (JSON Web Tokens) & LDAP  
 - **Validation:** Pydantic v2  
 
----
 
 ## Installation
 
