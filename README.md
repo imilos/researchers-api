@@ -6,17 +6,11 @@ A **FastAPI-based backend** for managing researcher profiles, featuring **JWT au
 ## Features
 
 - **Authentication** - Dual support for Local DB users and LDAP integration
-
 - **Researcher Management** - CRUD operations for: Customers (Researchers), Faculties, Departments
-
 - **Smart Filtering** - Search by: Name, Email, ORCID, Scopus ID, ECRIS ID
-
 - **Authority Logic** - Filtering for researchers with multiple authority identifiers
-
 - **DSpace Integration** - Automatic generation of DSpace name indexes
-
 - **Export** - CSV export of all researcher data
-
 
 ## Tech Stack
 
