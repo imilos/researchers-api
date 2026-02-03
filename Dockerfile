@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    cron \
     gcc \
     g++ \
     libldap2-dev \
@@ -21,19 +22,27 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create instance directory for SQLite database with proper permissions
+# Create instance directory for SQLite database
 RUN mkdir -p /data/instance && \
     chmod 755 /data/instance
 
-# Create a non-root user to run the application
+# Setup cron job - specify user in the crontab file
+RUN echo "0 2 * * * fastapi-user cd /app && python fetch_authorities_cli.py >> /var/log/cron.log 2>&1" > /etc/cron.d/fetch-authorities && \
+    chmod 0644 /etc/cron.d/fetch-authorities
+
+# Create and set permissions for cron log
+RUN touch /var/log/cron.log && \
+    chmod 666 /var/log/cron.log
+
+# Create non-root user
 RUN useradd -m -u 1000 fastapi-user && \
     chown -R fastapi-user:fastapi-user /app && \
     chown -R fastapi-user:fastapi-user /data
 
-USER fastapi-user
+# Copy and make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
 
-# Expose port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "app_fastapi:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run entrypoint as root
+ENTRYPOINT ["/app/entrypoint.sh"]
