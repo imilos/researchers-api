@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  researchers-api:
+    image: imilos/researchers-api:latest
+    container_name: researchers-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Required: SQLite database path (must match volume mount)
+      - SQLITE_DB_PATH=/data/instance/customers.db
+      
+      # LDAP Configuration
+      - LDAP_URL=ldap://your-ldap-server.example.com:389
+      - LDAP_BASE_DN=ou=People,dc=example,dc=com
+      - LDAP_BIND_DN=uid=service-account,ou=People,dc=example,dc=com
+      - LDAP_BIND_PASSWORD=your-ldap-password
+      - LDAP_USER_SEARCH_FILTER=(&(uid={username})(memberOf=cn=app-users,ou=Groups,dc=example,dc=com))
+      - LDAP_DOMAINS=@example.com,@company.com
+      
+      # External API for authorities
+      - AUTHORITY_URL=https://your-external-api.example.com/bibliography?authority=1&orcid=
+      
+      # CORS (allow all origins - adjust for production)
+      - ALLOWED_ORIGINS=*
+      
+      # Optional: Token expiration (default: 2 hours)
+      - ACCESS_TOKEN_EXPIRE_HOURS=2
+      
+    volumes:
+      # Mount volume for SQLite database persistence
+      - researchers_data:/data/instance
+    restart: unless-stopped
+
+volumes:
+  researchers_data:
