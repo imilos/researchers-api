@@ -587,7 +587,8 @@ def get_customers(
 ):
     """Get all customers with pagination and filtering"""
     # Start with base query
-    query = db.query(Customer).outerjoin(Faculty).outerjoin(Department)
+    query = db.query(Customer).outerjoin(Customer.faculty).outerjoin(Customer.department)
+    #print ("Base query:", str(query))
     
     # Apply filter_string filter if provided
     if filter_string is not None:
@@ -599,10 +600,10 @@ def get_customers(
             Customer.scopusid.ilike(f"%{filter_string}%"),
             Customer.ecrisid.ilike(f"%{filter_string}%"),
             Faculty.name.ilike(f"%{filter_string}%"),
-            Department.name.ilike(f"%{filter_string}%")
+            Department.name.ilike(f"%{filter_string}%"),
             )
         )
-    # Filter only researchers with authorities longer than 38 characters
+    # Filter only researchers with authorities longer than 40 characters
     if only_multiple_authorities:
         query = query.filter(func.length(Customer.authorities) > 40)
 
