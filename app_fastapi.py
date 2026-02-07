@@ -582,6 +582,8 @@ def get_customers(
     per_page: int = Query(10, ge=1, le=100, description="Items per page"),
     filter_string: Optional[str] = Query(None, description="Filter by customer name, email, ORCID, Scopus ID, ECRIS ID"),
     only_multiple_authorities: bool = Query(False, description="Filter only researchers with multiple authorities"),
+    sort_column: Optional[str] = Query(None, description="Column to sort by"),
+    sort_order: Optional[bool] = Query(True, description="Sort order: True for ascending, False for descending"),    
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -606,6 +608,31 @@ def get_customers(
     # Filter only researchers with authorities longer than 40 characters
     if only_multiple_authorities:
         query = query.filter(func.length(Customer.authorities) > 40)
+
+    # Map frontend column names to database column/expression
+    sort_mapping = {
+        "name": Customer.name,
+        "email": Customer.email,
+        "orcid": Customer.orcid,
+        "scopusid": Customer.scopusid,
+        "ecrisid": Customer.ecrisid,
+        "faculty": Faculty.name,  # Sort by faculty name
+        "department": Department.name,  # Sort by department name
+        "faculty_id": Faculty.name,  # Alias za compatibility
+        "department_id": Department.name,  # Alias za compatibility
+    }
+
+    # Apply sorting if sort_column is provided
+    sort_expr = sort_mapping.get(sort_column)
+    #print()("Sorting by:", sort_column, "->", sort_expr)
+        
+    if sort_expr:
+        if sort_order:  # Ascending
+            query = query.order_by(sort_expr.asc().nulls_last())
+        else:  # Descending
+            query = query.order_by(sort_expr.desc().nulls_last())
+    else:
+        query = query.order_by(Customer.id.asc())
 
     total = query.count()
     
