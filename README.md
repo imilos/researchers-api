@@ -79,4 +79,4 @@ The API manages three main entities:
 
 ## CI/CD
 
-The image generation runs on each push. 
+The image generation runs on each push to any branch. 
