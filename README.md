@@ -76,3 +76,7 @@ The API manages three main entities:
 - **Faculty**: Academic institutions.
 - **Department**: Specific units within a faculty.
 - **Customer (Researcher)**: Individual profiles linked to faculties/departments with various academic IDs (ORCID, Scopus, ECRIS).
+
+## CI/CD
+
+The image generation runs on each push. 
