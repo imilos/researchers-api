@@ -582,16 +582,25 @@ def get_customers(
     per_page: int = Query(10, ge=1, le=100, description="Items per page"),
     filter_string: Optional[str] = Query(None, description="Filter by customer name, email, ORCID, Scopus ID, ECRIS ID"),
     only_multiple_authorities: bool = Query(False, description="Filter only researchers with multiple authorities"),
+    faculty_id: Optional[int] = Query(None, description="Filter by faculty ID"),
+    department_id: Optional[int] = Query(None, description="Filter by department ID"),
     sort_column: Optional[str] = Query(None, description="Column to sort by"),
-    sort_order: Optional[bool] = Query(True, description="Sort order: True for ascending, False for descending"),    
+    sort_order: Optional[bool] = Query(True, description="Sort order: True for ascending, False for descending"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get all customers with pagination and filtering"""
     # Start with base query
-    query = db.query(Customer).outerjoin(Customer.faculty).outerjoin(Customer.department)
+    #query = db.query(Customer).outerjoin(Customer.faculty).outerjoin(Customer.department)
+    query = db.query(Customer)
     #print ("Base query:", str(query))
     
+    if faculty_id is not None:
+        query = query.filter(Customer.faculty_id == faculty_id)
+    
+    if department_id is not None:
+        query = query.filter(Customer.department_id == department_id)
+        
     # Apply filter_string filter if provided
     if filter_string is not None:
         query = query.filter(
@@ -601,8 +610,8 @@ def get_customers(
             Customer.orcid.ilike(f"%{filter_string}%"), 
             Customer.scopusid.ilike(f"%{filter_string}%"),
             Customer.ecrisid.ilike(f"%{filter_string}%"),
-            Faculty.name.ilike(f"%{filter_string}%"),
-            Department.name.ilike(f"%{filter_string}%"),
+            #Faculty.name.ilike(f"%{filter_string}%"),
+            #Department.name.ilike(f"%{filter_string}%"),
             )
         )
     # Filter only researchers with authorities longer than 40 characters
@@ -618,8 +627,6 @@ def get_customers(
         "ecrisid": Customer.ecrisid,
         "faculty": Faculty.name,  # Sort by faculty name
         "department": Department.name,  # Sort by department name
-        "faculty_id": Faculty.name,  # Alias za compatibility
-        "department_id": Department.name,  # Alias za compatibility
     }
 
     # Apply sorting if sort_column is provided
