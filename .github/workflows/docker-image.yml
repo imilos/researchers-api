@@ -37,6 +37,16 @@ jobs:
         CLEAN_BRANCH=$(echo "${{ env.BRANCH_NAME }}" | sed 's/[^a-zA-Z0-9._-]/-/g' | cut -c1-30)
         echo "clean_branch=$CLEAN_BRANCH" >> $GITHUB_OUTPUT
 
+    - name: Create config.py from example
+      run: |
+        if [ -f "config.py.example" ]; then
+          echo "Copying config.py.example to config.py"
+          cp config.py.example config.py          
+        else
+          echo "Warning: config.py.example not found!"
+          ls -la
+        fi        
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
