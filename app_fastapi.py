@@ -591,8 +591,8 @@ def get_customers(
 ):
     """Get all customers with pagination and filtering"""
     # Start with base query
-    #query = db.query(Customer).outerjoin(Customer.faculty).outerjoin(Customer.department)
-    query = db.query(Customer)
+    query = db.query(Customer).outerjoin(Customer.faculty).outerjoin(Customer.department)
+    #query = db.query(Customer)
     #print ("Base query:", str(query))
     
     if faculty_id is not None:
