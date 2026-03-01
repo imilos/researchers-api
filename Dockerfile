@@ -27,7 +27,7 @@ RUN mkdir -p /data/instance && \
     chmod 755 /data/instance
 
 # Setup cron job - specify user in the crontab file
-RUN echo "45 2 * * * fastapi-user cd /app && /usr/local/bin/python3 fetch_authorities_cli.py >> /var/log/cron.log 2>&1" > /etc/cron.d/fetch-authorities && \
+RUN echo "45 2 * * * root cd /app && /usr/local/bin/python3 fetch_authorities_cli.py >> /var/log/cron.log 2>&1" > /etc/cron.d/fetch-authorities && \
     chmod 0644 /etc/cron.d/fetch-authorities
 
 # Create and set permissions for cron log
