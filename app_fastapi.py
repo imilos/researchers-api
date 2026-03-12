@@ -806,7 +806,7 @@ def delete_customer(
     
     return None
 
-@app.get("/api/customers/download/")
+@app.get("/api/customers/download/csv")
 def download_customers_csv(db: Session = Depends(get_db)):
     """Download all customers as CSV (unprotected route)"""
     customers = db.query(Customer).all()
