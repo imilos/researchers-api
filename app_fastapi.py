@@ -834,7 +834,7 @@ def download_customers_csv(db: Session = Depends(get_db)):
             'department': department_name,
             'faculty': faculty_name,
             'dspace_index': create_index(customer.name) + "#" +(customer.orcid or ''),
-            'authorities': authorities
+            'authorities': customer.authorities
         })
     
     output.seek(0)
