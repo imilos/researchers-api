@@ -806,7 +806,7 @@ def delete_customer(
     
     return None
 
-@app.get("/api/customers/download/csv")
+@app.get("/api/customers/download/")
 def download_customers_csv(db: Session = Depends(get_db)):
     """Download all customers as CSV (unprotected route)"""
     customers = db.query(Customer).all()
@@ -815,7 +815,7 @@ def download_customers_csv(db: Session = Depends(get_db)):
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
-        fieldnames=['orcid', 'ecrisid', 'scopusid', 'name', 'email', 'department', 'faculty', 'dspace_index']
+        fieldnames=['orcid', 'ecrisid', 'scopusid', 'name', 'email', 'department', 'faculty', 'dspace_index', 'authorities']
     )
     
     writer.writeheader()
@@ -833,7 +833,8 @@ def download_customers_csv(db: Session = Depends(get_db)):
             'email': customer.email,
             'department': department_name,
             'faculty': faculty_name,
-            'dspace_index': create_index(customer.name) + "#" +(customer.orcid or '')
+            'dspace_index': create_index(customer.name) + "#" +(customer.orcid or ''),
+            'authorities': authorities
         })
     
     output.seek(0)
